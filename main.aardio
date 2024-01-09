@@ -1,0 +1,186 @@
+import web.json;
+import win.ui;
+import win.ui.grid;
+/*DSG{{*/
+var mainForm = win.form(text="GTMD评教系统";right=599;bottom=449;max=false;min=false)
+mainForm.add(
+button_get={cls="button";text="解析！";left=520;top=8;right=590;bottom=38;z=2};
+button_web={cls="button";text="Github主页";left=500;top=413;right=590;bottom=443;z=5};
+edit_cookie={cls="edit";left=10;top=10;right=510;bottom=35;autovscroll=false;edge=1;font=LOGFONT(h=-14;name='Times New Roman');z=1};
+listview={cls="listview";left=10;top=45;right=590;bottom=405;edge=1;font=LOGFONT(h=-16;name='微软雅黑');z=3};
+static_log={cls="static";left=10;top=415;right=490;bottom=440;center=1;edge=1;font=LOGFONT(h=-14);transparent=1;z=4}
+)
+/*}}*/
+
+mainForm.edit_cookie.setCueBannerText('在这里输入获取到的Cookie');
+var grid = win.ui.grid(mainForm.listview);
+grid.setReadonlyColumns(-1);
+grid.setColumns({'课程名称';'学位课';'学分';'分数';'绩点'});
+
+/*绩点换算{{*/
+function getGpa(s){
+	var rt = 0;
+	select(s) {
+		case 90;100
+			rt = 4;
+		case 87;89
+			rt = 3.9;
+		case 85,86
+			rt = 3.8;
+		case 83,84
+			rt = 3.7;
+		case 82
+			rt = 3.6;
+		case 80,81
+			rt = 3.5;
+		case 78,79
+			rt = 3.4;
+		case 76,77
+			rt = 3.3;
+		case 75
+			rt = 3.2;
+		case 74
+			rt = 3.1;
+		case 73
+			rt = 3;
+		case 72
+			rt = 2.9;
+		case 71
+			rt = 2.8;
+		case 69,70
+			rt = 2.7;
+		case 68
+			rt = 2.6;
+		case 67
+			rt = 2.5;
+		case 66
+			rt = 2.4;
+		case 64,65
+			rt = 2.3;
+		case 63
+			rt = 2.2;
+		case 62
+			rt = 2.1;
+		case 61
+			rt = 1.8;
+		case 60
+			rt = 1.6;
+	}
+	return rt;
+}
+function degreeGpa(tab){
+	var (sum = 0; n = 0);
+	for(k,v in tab){
+		sum += v.c*v.g;
+		n += v.c;
+	}
+	return math.round(sum/n,2);
+}
+/*}}*/
+
+mainForm.edit_cookie.onOk = function(){ 
+	mainForm.button_get.oncommand();
+	return true; 	
+}
+
+mainForm.button_get.oncommand = function(){
+	if( mainForm.edit_cookie.text=='' ){
+		mainForm.static_log.text = '错误：Cookie不能为空，请重新输入！';
+		return;
+	}
+	mainForm.button_get.disabled = 1;
+	
+	//处理Cookie
+	mainForm.static_log.text = '正在处理Cookie……';
+	var cookie = mainForm.edit_cookie.text;
+	var i,j = string.find(cookie,'@sepuser=');
+	if( i )
+		mainForm.cookie = string.slice(cookie,j+1);
+	else
+		mainForm.cookie = cookie;
+	
+	//创建查询线程
+	var query = thread.create(
+		function(winform){
+			import inet.http;
+			//设置主Cookie
+			winform.static_log.text = '尝试登录SEP……';
+			var sep = inet.http("Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-CN) AppleWebKit/523.15 (KHTML, like Gecko, Safari/419.3) Arora/0.3 (Change: 287 c9dfb30)");
+			var sep_cookie = winform.cookie;
+			sep.head("https://sep.ucas.ac.cn/");
+			inet.setCookie("http://ucas.ac.cn",sep_cookie,"sepuser");
+			sleep(100);
+			
+			//获取Identity
+			winform.static_log.text = '尝试获取Id……';
+			var rd = sep.get("https://sep.ucas.ac.cn/portal/site/226/821");
+			if(!rd){
+				winform.static_log.text = '错误：Id获取失败，请检查网络是否畅通！';
+				return;
+			}
+			var i = string.find(rd,'@Identity=');
+			if( !i ){
+				winform.static_log.text = '错误：Id获取失败，请检查Cookie是否正确填写！';
+				return;
+			}
+			var j = string.find(rd,'@&roleId=821',i)-1;
+			var identity = string.slice(rd,i,j);
+			sleep(100);
+			
+			//获取选课系统的SESSION
+			winform.static_log.text = '尝试获取SESSION……';
+			var jwxk = inet.http("Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-CN) AppleWebKit/523.15 (KHTML, like Gecko, Safari/419.3) Arora/0.3 (Change: 287 c9dfb30)");
+			var url = "https://jwxk.ucas.ac.cn/login?"++identity;
+			jwxk.head(url);
+			sleep(100);
+			
+			//获取成绩JSON
+			winform.static_log.text = '获取成绩数据……';
+			var json = jwxk.get("http://jwxk.ucas.ac.cn/score/yjs/all.json");
+			if(string.left(json,1)=='{')
+				winform.json = json;
+			else
+				winform.static_log.text = '错误：成绩数据获取失败，请检查Cookie是否正确填写！';
+		},mainForm
+	);
+	
+	//等待查询线程
+	if(!thread.waitOne(query,5000)){
+		mainForm.static_log.text = '错误：查询进程超时！';
+		mainForm.button_get.disabled = 0;
+		return;
+	}
+	if(!mainForm.json){
+		mainForm.button_get.disabled = 0;
+		return;
+	}
+	
+	//数据整理
+	var score = web.json.parse(mainForm.json);
+	var course = {};
+	var degree = {};
+	course.fields = {'课程名称';'学位课';'学分';'分数';'绩点'};
+	for(i=1;#score.list;1){
+		course[i] = {};
+		course[i]['课程名称'] = score.list[i].courseName;
+		course[i]['学分'] = tonumber(score.list[i].courseCredit);
+		course[i]['分数'] = tonumber(score.list[i].score);
+		course[i]['绩点'] = getGpa(course[i]['分数']);
+		if(score.list[i].degreeFlag){
+			table.push(degree,{c=course[i]['学分'];g=course[i]['绩点']});
+			course[i]['学位课'] = '是';
+		}
+		else
+			course[i]['学位课'] = '否';
+	}
+	grid.setTable(course);
+	mainForm.static_log.text = "总学分："++score.totalCredit++"，总绩点："++score.gpa++"，学位课学分："++score.degreeCredit++"，学位课绩点："++degreeGpa(degree);
+}
+
+mainForm.button_web.oncommand = function(){
+	import process;
+	process.openUrl("https://github.com/xenon2333/ScoreQueryTool");
+}
+
+mainForm.show();
+win.loopMessage();

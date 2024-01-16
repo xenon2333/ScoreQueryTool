@@ -71,8 +71,10 @@ function getGpa(s){
 function degreeGpa(tab){
 	var (sum = 0; n = 0);
 	for(k,v in tab){
-		sum += v.c*v.g;
-		n += v.c;
+		if(v.g>=1){
+			sum += v.c*v.g;
+			n += v.c;
+		}
 	}
 	return math.round(sum/n,2);
 }
@@ -105,15 +107,15 @@ mainForm.button_get.oncommand = function(){
 			import inet.http;
 			//设置主Cookie
 			winform.static_log.text = '尝试登录SEP……';
-			var sep = inet.http("Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-CN) AppleWebKit/523.15 (KHTML, like Gecko, Safari/419.3) Arora/0.3 (Change: 287 c9dfb30)");
+			var http = inet.http("Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-CN) AppleWebKit/523.15 (KHTML, like Gecko, Safari/419.3) Arora/0.3 (Change: 287 c9dfb30)");
 			var sep_cookie = winform.cookie;
-			sep.head("https://sep.ucas.ac.cn/");
+			http.head("https://sep.ucas.ac.cn/");
 			inet.setCookie("http://ucas.ac.cn",sep_cookie,"sepuser");
 			sleep(100);
 			
 			//获取Identity
 			winform.static_log.text = '尝试获取Id……';
-			var rd = sep.get("https://sep.ucas.ac.cn/portal/site/226/821");
+			var rd = http.get("https://sep.ucas.ac.cn/portal/site/226/821");
 			if(!rd){
 				winform.static_log.text = '错误：Id获取失败，请检查网络是否畅通！';
 				return;
@@ -129,18 +131,21 @@ mainForm.button_get.oncommand = function(){
 			
 			//获取选课系统的SESSION
 			winform.static_log.text = '尝试获取SESSION……';
-			var jwxk = inet.http("Mozilla/5.0 (Windows; U; Windows NT 5.1; zh-CN) AppleWebKit/523.15 (KHTML, like Gecko, Safari/419.3) Arora/0.3 (Change: 287 c9dfb30)");
-			var url = "https://jwxk.ucas.ac.cn/login?"++identity;
-			jwxk.head(url);
+			var url = "https://xkcts.ucas.ac.cn/login?"++identity;
+			http.head(url);
 			sleep(100);
 			
 			//获取成绩JSON
 			winform.static_log.text = '获取成绩数据……';
-			var json = jwxk.get("http://jwxk.ucas.ac.cn/score/yjs/all.json");
-			if(string.left(json,1)=='{')
-				winform.json = json;
+			var json = http.get("https://xkcts.ucas.ac.cn/score/yjs/all.json");
+			if( json ){
+				if(string.left(json,1)=='{')
+					winform.json = json;
+				else
+					winform.static_log.text = '错误：成绩数据获取失败，请检查Cookie是否正确填写！';
+			}
 			else
-				winform.static_log.text = '错误：成绩数据获取失败，请检查Cookie是否正确填写！';
+				winform.static_log.text = '错误：成绩数据获取失败，请检查教务系统是否能正常访问！';
 		},mainForm
 	);
 	
@@ -164,8 +169,8 @@ mainForm.button_get.oncommand = function(){
 		course[i] = {};
 		course[i]['课程名称'] = score.list[i].courseName;
 		course[i]['学分'] = tonumber(score.list[i].courseCredit);
-		course[i]['分数'] = tonumber(score.list[i].score);
-		course[i]['绩点'] = getGpa(course[i]['分数']);
+		course[i]['分数'] = score.list[i].score;
+		course[i]['绩点'] = getGpa(tonumber(course[i]['分数']));
 		if(score.list[i].degreeFlag){
 			table.push(degree,{c=course[i]['学分'];g=course[i]['绩点']});
 			course[i]['学位课'] = '是';

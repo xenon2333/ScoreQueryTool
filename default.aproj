@@ -1,4 +1,4 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<project ver="10" name="ScoreQueryTool" libEmbed="true" icon="..." ui="win" output="ScoreQueryTool.exe" CompanyName="" FileDescription="成绩查询工具" LegalCopyright="Copyright (C) Xenon 2024" ProductName="ScoreQueryTool" InternalName="" FileVersion="0.1.0.0109" ProductVersion="0.1.0.0109" publishDir="/dist/" dstrip="false" local="false" ignored="false">
+<project ver="10" name="ScoreQueryTool" libEmbed="true" icon="..." ui="win" output="ScoreQueryTool.exe" CompanyName="" FileDescription="成绩查询工具" LegalCopyright="Copyright (C) Xenon 2024" ProductName="ScoreQueryTool" InternalName="" FileVersion="0.1.1.0116" ProductVersion="0.1.1.0116" publishDir="/dist/" dstrip="true" local="false" ignored="false">
 	<file name="main.aardio" path="main.aardio" comment="main.aardio"/>
 </project>
